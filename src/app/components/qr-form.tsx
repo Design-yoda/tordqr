@@ -237,6 +237,17 @@ function CropModal({ src, onCrop, onCancel }: {
 }
 
 /* ── Upload-or-URL widget ─────────────────────────────────────────────── */
+async function uploadToHost(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("reqtype", "fileupload");
+  form.append("fileToUpload", file);
+  const res = await fetch("https://catbox.moe/user.php", { method: "POST", body: form });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text.startsWith("http")) throw new Error("Unexpected response");
+  return text;
+}
+
 function MediaItemRow({
   item,
   index,
@@ -257,11 +268,25 @@ function MediaItemRow({
   canRemove: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
-    const fileUrl = await readFile(file);
-    onUpdate({ fileUrl, fileName: file.name, url: "" });
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const hostedUrl = await uploadToHost(file);
+      onUpdate({ url: hostedUrl, fileName: file.name, fileUrl: "" });
+    } catch {
+      setUploadError("Upload failed — check your connection and try again, or use URL mode.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
+
+  // A file is "hosted" when mode=upload and we have a url (set by handleFile)
+  const isHosted = item.mode === "upload" && !!item.url && !!item.fileName;
 
   return (
     <div className="bg-gray-50/80 rounded-xl p-3 space-y-2">
@@ -287,7 +312,7 @@ function MediaItemRow({
         {(["url", "upload"] as const).map((m) => (
           <button
             key={m}
-            onClick={() => onUpdate({ mode: m })}
+            onClick={() => onUpdate({ mode: m, url: "", fileName: "", fileUrl: "" })}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] transition-colors cursor-pointer"
             style={item.mode === m
               ? { backgroundColor: PRIMARY, color: "white" }
@@ -308,10 +333,22 @@ function MediaItemRow({
         />
       ) : (
         <>
-          {item.fileUrl ? (
-            <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-200">
+          {uploading ? (
+            <div className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-[#4C80F1]/40 rounded-xl bg-[#4C80F1]/5 text-[12px] text-[#4C80F1]">
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Uploading…
+            </div>
+          ) : isHosted ? (
+            <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-green-200">
+              <svg className="w-3.5 h-3.5 text-green-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
               <span className="text-[11px] text-gray-700 truncate flex-1">{item.fileName}</span>
-              <button onClick={() => onUpdate({ fileUrl: "", fileName: "" })} className="shrink-0 cursor-pointer">
+              <span className="text-[10px] text-green-500 font-medium shrink-0">Hosted</span>
+              <button onClick={() => onUpdate({ url: "", fileName: "", fileUrl: "" })} className="shrink-0 cursor-pointer ml-1">
                 <X className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
               </button>
             </div>
@@ -322,6 +359,9 @@ function MediaItemRow({
             >
               <Upload className="w-4 h-4" /> Click to upload file
             </button>
+          )}
+          {uploadError && (
+            <p className="text-[11px] text-red-400 px-1">{uploadError}</p>
           )}
           <input
             ref={fileRef}
