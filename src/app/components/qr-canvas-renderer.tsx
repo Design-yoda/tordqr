@@ -43,15 +43,7 @@ function mapCornerDotStyle(style: CornerStyle): QRCornerDotType {
   }
 }
 
-/** Clamp value to QR-safe length (binary mode max ~2900 bytes). */
-function safeValue(raw: string): string {
-  // Encode to measure byte length
-  const bytes = new TextEncoder().encode(raw);
-  if (bytes.length <= 2800) return raw;
-  // Truncate to fit — strip from the end
-  const decoder = new TextDecoder();
-  return decoder.decode(bytes.slice(0, 2800));
-}
+const MAX_QR_BYTES = 2800;
 
 function buildQROptions(value: string, options: QRStyleOptions, size: number) {
   const gradient = options.gradientEnabled
@@ -68,7 +60,7 @@ function buildQROptions(value: string, options: QRStyleOptions, size: number) {
   return {
     width: size,
     height: size,
-    data: safeValue(value) || " ",
+    data: value || " ",
     dotsOptions: {
       type: mapDotStyle(options.dotStyle),
       ...(gradient ? { gradient } : { color: options.fgColor }),
@@ -107,31 +99,26 @@ export const QRCanvasRenderer = forwardRef<QRCanvasHandle, QRCanvasRendererProps
     const qrRef = useRef<QRCodeStyling | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Initialize once
     useEffect(() => {
       setError(null);
+      const bytes = new TextEncoder().encode(value);
+      if (bytes.length > MAX_QR_BYTES) {
+        setError("too-large");
+        return;
+      }
       try {
-        const qr = new QRCodeStyling(buildQROptions(value, options, displaySize));
-        qrRef.current = qr;
-        if (containerRef.current) {
-          containerRef.current.innerHTML = "";
-          qr.append(containerRef.current);
+        if (!qrRef.current) {
+          const qr = new QRCodeStyling(buildQROptions(value, options, displaySize));
+          qrRef.current = qr;
+          if (containerRef.current) {
+            containerRef.current.innerHTML = "";
+            qr.append(containerRef.current);
+          }
+        } else {
+          qrRef.current.update(buildQROptions(value, options, displaySize));
         }
       } catch (e) {
-        console.error("QR init error:", e);
-        setError("Could not generate QR code.");
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Update on value / options change
-    useEffect(() => {
-      if (!qrRef.current) return;
-      setError(null);
-      try {
-        qrRef.current.update(buildQROptions(value, options, displaySize));
-      } catch (e) {
-        console.error("QR update error:", e);
+        console.error("QR error:", e);
         setError("Could not generate QR code.");
       }
     }, [value, options, displaySize]);
@@ -145,12 +132,25 @@ export const QRCanvasRenderer = forwardRef<QRCanvasHandle, QRCanvasRendererProps
     }, []);
 
     const copyToClipboard = useCallback(async (): Promise<boolean> => {
-      if (!qrRef.current) return false;
       try {
-        const blob = await qrRef.current.getRawData("png");
-        if (!blob) return false;
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob as Blob })]);
-        return true;
+        // Prefer grabbing the rendered canvas directly — most reliable
+        const canvas = containerRef.current?.querySelector("canvas");
+        if (canvas) {
+          const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+          if (blob) {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+            return true;
+          }
+        }
+        // Fallback: qr-code-styling's built-in getRawData
+        if (qrRef.current) {
+          const blob = await qrRef.current.getRawData("png");
+          if (blob) {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob as Blob })]);
+            return true;
+          }
+        }
+        return false;
       } catch {
         return false;
       }
@@ -159,13 +159,20 @@ export const QRCanvasRenderer = forwardRef<QRCanvasHandle, QRCanvasRendererProps
     useImperativeHandle(ref, () => ({ downloadPNG, downloadSVG, copyToClipboard }));
 
     if (error) {
+      const isTooLarge = error === "too-large";
       return (
         <div
-          className="flex flex-col items-center justify-center rounded-2xl bg-red-50 border border-red-100 text-center p-4"
+          className="flex flex-col items-center justify-center rounded-2xl bg-red-50 border border-red-100 text-center p-4 gap-1"
           style={{ width: displaySize, height: displaySize }}
         >
-          <p className="text-[12px] text-red-400 font-medium">{error}</p>
-          <p className="text-[11px] text-red-300 mt-1">Content may be too large for a QR code.</p>
+          <p className="text-[12px] text-red-400 font-medium">
+            {isTooLarge ? "File too large for QR code" : error}
+          </p>
+          <p className="text-[11px] text-red-300 leading-snug">
+            {isTooLarge
+              ? "Upload your file to Google Drive or Dropbox and paste the shareable link in URL mode."
+              : "Content may be too large for a QR code."}
+          </p>
         </div>
       );
     }

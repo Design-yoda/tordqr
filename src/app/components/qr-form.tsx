@@ -80,6 +80,162 @@ function readFile(file: File): Promise<string> {
   });
 }
 
+/* ── Image crop modal ─────────────────────────────────────────────────── */
+type DragHandle = "move" | "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
+
+function CropModal({ src, onCrop, onCancel }: {
+  src: string;
+  onCrop: (dataUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const imgRef   = useRef<HTMLImageElement>(null);
+  const imgSizeRef = useRef({ w: 0, h: 0 });
+  const dragRef  = useRef<{ type: DragHandle; startX: number; startY: number; startBox: { x: number; y: number; w: number; h: number } } | null>(null);
+  const [box, setBox]           = useState({ x: 0, y: 0, w: 0, h: 0 });
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  const clamp = (b: typeof box) => {
+    const { w: imgW, h: imgH } = imgSizeRef.current;
+    let { x, y, w, h } = b;
+    w = Math.max(20, Math.min(w, imgW));
+    h = Math.max(20, Math.min(h, imgH));
+    x = Math.max(0, Math.min(x, imgW - w));
+    y = Math.max(0, Math.min(y, imgH - h));
+    return { x, y, w, h };
+  };
+
+  const onImgLoad = () => {
+    requestAnimationFrame(() => {
+      if (!imgRef.current) return;
+      const rect = imgRef.current.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      if (!w || !h) return;
+      imgSizeRef.current = { w, h };
+      const size = Math.min(w, h);
+      setBox({ x: (w - size) / 2, y: (h - size) / 2, w: size, h: size });
+      setImgLoaded(true);
+    });
+  };
+
+  const startDrag = (clientX: number, clientY: number, type: DragHandle) => {
+    dragRef.current = { type, startX: clientX, startY: clientY, startBox: { ...box } };
+  };
+
+  useEffect(() => {
+    const handleMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || !imgSizeRef.current.w) return;
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      let { x, y, w, h } = d.startBox;
+      if (d.type === "move") { x += dx; y += dy; }
+      else {
+        if (d.type.includes("e")) w += dx;
+        if (d.type.includes("s")) h += dy;
+        if (d.type.includes("w")) { x += dx; w -= dx; }
+        if (d.type.includes("n")) { y += dy; h -= dy; }
+      }
+      setBox(clamp({ x, y, w, h }));
+    };
+    const handleUp = () => { dragRef.current = null; };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup",   handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup",   handleUp);
+    };
+  }, []); // refs hold latest values — no deps needed
+
+  const applyCrop = () => {
+    const img = imgRef.current;
+    if (!img || !imgSizeRef.current.w) return;
+    const scaleX = img.naturalWidth  / imgSizeRef.current.w;
+    const scaleY = img.naturalHeight / imgSizeRef.current.h;
+    const canvas = document.createElement("canvas");
+    canvas.width  = Math.round(box.w * scaleX);
+    canvas.height = Math.round(box.h * scaleY);
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, Math.round(box.x * scaleX), Math.round(box.y * scaleY), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+    onCrop(canvas.toDataURL("image/jpeg", 0.88));
+  };
+
+  const HANDLES: [DragHandle, string][] = [
+    ["nw", "-top-1.5 -left-1.5 cursor-nw-resize"],
+    ["ne", "-top-1.5 -right-1.5 cursor-ne-resize"],
+    ["sw", "-bottom-1.5 -left-1.5 cursor-sw-resize"],
+    ["se", "-bottom-1.5 -right-1.5 cursor-se-resize"],
+    ["n",  "top-1/2 left-1/2 -translate-x-1/2 -translate-y-full -mt-0.5 cursor-n-resize"],
+    ["s",  "bottom-1/2 left-1/2 -translate-x-1/2 translate-y-full mt-0.5 cursor-s-resize"],
+    ["w",  "left-1/2 top-1/2 -translate-x-full -translate-y-1/2 -ml-0.5 cursor-w-resize"],
+    ["e",  "right-1/2 top-1/2 translate-x-full -translate-y-1/2 ml-0.5 cursor-e-resize"],
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancel}>
+      <div className="bg-white rounded-2xl shadow-2xl p-5 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-[14px] font-semibold text-gray-800 mb-3">Crop Image</h3>
+        <div className="relative inline-block select-none overflow-hidden rounded-lg" style={{ lineHeight: 0, maxWidth: "100%" }}>
+          <img
+            ref={imgRef}
+            src={src}
+            alt="crop source"
+            onLoad={onImgLoad}
+            draggable={false}
+            style={{ display: "block", maxWidth: "100%", maxHeight: 320 }}
+          />
+          {imgLoaded && (
+            <>
+              {/* Dark overlay outside crop box */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute bg-black/50" style={{ top: 0, left: 0, right: 0, height: box.y }} />
+                <div className="absolute bg-black/50" style={{ top: box.y + box.h, left: 0, right: 0, bottom: 0 }} />
+                <div className="absolute bg-black/50" style={{ top: box.y, left: 0, width: box.x, height: box.h }} />
+                <div className="absolute bg-black/50" style={{ top: box.y, left: box.x + box.w, right: 0, height: box.h }} />
+              </div>
+              {/* Crop box */}
+              <div
+                className="absolute border-2 border-white cursor-move"
+                style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+                onPointerDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY, "move"); }}
+              >
+                {/* Rule-of-thirds grid lines */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {["33.33%", "66.66%"].map((p) => (
+                    <div key={p} className="absolute inset-y-0 border-l border-white/30" style={{ left: p }} />
+                  ))}
+                  {["33.33%", "66.66%"].map((p) => (
+                    <div key={p} className="absolute inset-x-0 border-t border-white/30" style={{ top: p }} />
+                  ))}
+                </div>
+                {/* Handles */}
+                {HANDLES.map(([type, cls]) => (
+                  <div
+                    key={type}
+                    className={`absolute w-3 h-3 bg-white border border-gray-400 rounded-sm shadow ${cls}`}
+                    onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startDrag(e.clientX, e.clientY, type); }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex gap-2 mt-4 justify-end">
+          <button onClick={onCancel} className="px-4 py-2 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 cursor-pointer">
+            Cancel
+          </button>
+          <button onClick={() => onCrop(src)} className="px-4 py-2 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 cursor-pointer">
+            Skip crop
+          </button>
+          <button onClick={applyCrop} className="px-4 py-2 rounded-xl text-[13px] text-white cursor-pointer" style={{ backgroundColor: PRIMARY }}>
+            Crop & Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Upload-or-URL widget ─────────────────────────────────────────────── */
 function MediaItemRow({
   item,
@@ -204,42 +360,58 @@ function ImageUpload({
   onRemove: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [pendingSrc, setPendingSrc] = useState<string | null>(null);
   const radius = shape === "circle" ? "rounded-full" : "rounded-xl";
 
+  const handleFile = async (file: File) => {
+    const dataUrl = await readFile(file);
+    setPendingSrc(dataUrl);
+    if (ref.current) ref.current.value = "";
+  };
+
   return (
-    <div className="flex items-center gap-3">
-      {imageUrl ? (
-        <div className="relative w-14 h-14 shrink-0">
-          <div className={`w-full h-full ${radius} overflow-hidden border-2 border-gray-200`}>
-            <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
-          </div>
-          <button
-            onClick={onRemove}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer shadow-sm z-10"
-          >
-            <X className="w-3 h-3 text-white" />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => ref.current?.click()}
-          className={`w-14 h-14 ${radius} border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#4C80F1] transition-colors cursor-pointer bg-gray-50`}
-        >
-          <ImagePlus className="w-5 h-5 text-gray-400" />
-        </button>
+    <>
+      {pendingSrc && (
+        <CropModal
+          src={pendingSrc}
+          onCrop={(url) => { setPendingSrc(null); onUpload(url); }}
+          onCancel={() => setPendingSrc(null)}
+        />
       )}
-      <div className="text-[12px] text-gray-500">
-        <p className="font-medium">{label}</p>
-        <p className="text-gray-400">PNG, JPG · preview only</p>
+      <div className="flex items-center gap-3">
+        {imageUrl ? (
+          <div className="relative w-14 h-14 shrink-0">
+            <div className={`w-full h-full ${radius} overflow-hidden border-2 border-gray-200`}>
+              <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
+            </div>
+            <button
+              onClick={onRemove}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer shadow-sm z-10"
+            >
+              <X className="w-3 h-3 text-white" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => ref.current?.click()}
+            className={`w-14 h-14 ${radius} border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#4C80F1] transition-colors cursor-pointer bg-gray-50`}
+          >
+            <ImagePlus className="w-5 h-5 text-gray-400" />
+          </button>
+        )}
+        <div className="text-[12px] text-gray-500">
+          <p className="font-medium">{label}</p>
+          <p className="text-gray-400">PNG, JPG · tap to crop</p>
+        </div>
+        <input
+          ref={ref}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+        />
       </div>
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={async (e) => { const f = e.target.files?.[0]; if (f) onUpload(await readFile(f)); }}
-      />
-    </div>
+    </>
   );
 }
 
@@ -254,6 +426,7 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
   const [audioItems,     setAudioItems]     = useState<MediaItem[]>(newMedia());
 
   const menuImageRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [cropPendingMenu, setCropPendingMenu] = useState<{ ci?: number; ii?: number; src: string; isLogo?: boolean } | null>(null);
 
   /* Reset all state on type change */
   useEffect(() => {
@@ -320,8 +493,8 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
     const u = [...menuCategories]; (u[ci].items[ii] as any)[key] = val; setMenuCategories(u);
   };
   const handleMenuItemImage = async (ci: number, ii: number, file: File) => {
-    const fileUrl = await readFile(file);
-    updateMenuItem(ci, ii, "imageUrl", fileUrl);
+    const src = await readFile(file);
+    setCropPendingMenu({ ci, ii, src });
   };
 
   /* ── Link helpers ───────────────────────────────────────────────────── */
@@ -478,6 +651,20 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
     case "menu":
       return (
         <div className="space-y-4">
+          {cropPendingMenu && (
+            <CropModal
+              src={cropPendingMenu.src}
+              onCrop={(url) => {
+                if (cropPendingMenu.isLogo) {
+                  update("logoUrl", url);
+                } else {
+                  updateMenuItem(cropPendingMenu.ci!, cropPendingMenu.ii!, "imageUrl", url);
+                }
+                setCropPendingMenu(null);
+              }}
+              onCancel={() => setCropPendingMenu(null)}
+            />
+          )}
           {/* Restaurant branding row */}
           <div className="flex items-start gap-3">
             <div className="shrink-0">
@@ -494,7 +681,7 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
               ) : (
                 <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#4C80F1] transition-colors cursor-pointer bg-gray-50">
                   <ImagePlus className="w-5 h-5 text-gray-400" />
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) update("logoUrl", await readFile(f)); }} />
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setCropPendingMenu({ src: await readFile(f), isLogo: true }); e.target.value = ""; } }} />
                 </label>
               )}
             </div>
@@ -540,7 +727,7 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
                         <ImagePlus className="w-4 h-4 text-gray-400" />
                       </button>
                     )}
-                    <input type="file" accept="image/*" className="hidden" ref={(el) => { menuImageRefs.current[`${cat.id}-${item.id}`] = el; }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMenuItemImage(ci, ii, f); }} />
+                    <input type="file" accept="image/*" className="hidden" ref={(el) => { menuImageRefs.current[`${cat.id}-${item.id}`] = el; }} onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleMenuItemImage(ci, ii, f); e.target.value = ""; } }} />
                   </div>
                   <div className="flex-1 grid grid-cols-[1fr_80px] gap-2">
                     <input className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-[13px] outline-none focus:border-[#4C80F1]" placeholder="Item name" value={item.name} onChange={(e) => updateMenuItem(ci, ii, "name", e.target.value)} />
@@ -746,15 +933,30 @@ function buildValue(
     }
     case "pdf": {
       const first = pdfItems.find((p) => p.url.trim() || p.fileUrl);
-      return first?.url || (first?.fileUrl ? "data:uploaded" : "") || "";
+      if (!first) return "";
+      if (first.url.trim()) return first.url.trim();
+      const uploadedPdf = pdfItems.filter((p) => p.fileUrl).map((p) => ({ title: p.title, src: p.fileUrl }));
+      if (!uploadedPdf.length) return "";
+      const base = window.location.href.split("#")[0];
+      return `${base}#view?type=pdf&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedPdf }))))}`;
     }
     case "video": {
       const first = videoItems.find((v) => v.url.trim() || v.fileUrl);
-      return first?.url || (first?.fileUrl ? "data:uploaded" : "") || "";
+      if (!first) return "";
+      if (first.url.trim()) return first.url.trim();
+      const uploadedVideo = videoItems.filter((v) => v.fileUrl).map((v) => ({ title: v.title, src: v.fileUrl }));
+      if (!uploadedVideo.length) return "";
+      const base = window.location.href.split("#")[0];
+      return `${base}#view?type=video&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedVideo }))))}`;
     }
     case "audio": {
       const first = audioItems.find((a) => a.url.trim() || a.fileUrl);
-      return first?.url || (first?.fileUrl ? "data:uploaded" : "") || "";
+      if (!first) return "";
+      if (first.url.trim()) return first.url.trim();
+      const uploadedAudio = audioItems.filter((a) => a.fileUrl).map((a) => ({ title: a.title, src: a.fileUrl, artist: a.artist }));
+      if (!uploadedAudio.length) return "";
+      const base = window.location.href.split("#")[0];
+      return `${base}#view?type=audio&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedAudio }))))}`;
     }
     case "links": {
       const valid = linkItems.filter((l) => l.url.trim());

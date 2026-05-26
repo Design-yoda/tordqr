@@ -1,7 +1,7 @@
 import {
   UtensilsCrossed, Star, ExternalLink, Tag, Globe, List,
   Instagram, Twitter, Facebook, Youtube, Linkedin, Github,
-  Music, MessageCircle, ChevronRight,
+  Music, MessageCircle, ChevronRight, FileText, Video, Headphones, Download,
 } from "lucide-react";
 
 const PLATFORM_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
@@ -27,6 +27,9 @@ export function LandingPage({ type, data }: LandingPageProps) {
     case "social": return <SocialLanding data={data} />;
     case "coupon": return <CouponLanding data={data} />;
     case "links":  return <LinksLanding  data={data} />;
+    case "pdf":    return <PdfLanding    data={data} />;
+    case "video":  return <VideoLanding  data={data} />;
+    case "audio":  return <AudioLanding  data={data} />;
     default:
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
@@ -248,6 +251,139 @@ function LinksLanding({ data }: { data: Record<string, any> }) {
           )) : (
             <p className="text-center text-gray-400 text-sm py-8">No links yet.</p>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PDF landing ───────────────────────────────────────────────────────── */
+function PdfLanding({ data }: { data: Record<string, any> }) {
+  const items: { title: string; src: string }[] = (data.items || []).filter((i: any) => i.src);
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
+      <div className="px-5 pt-8 pb-4 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-lg mx-auto flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#4C80F1" }}>
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-[18px] font-bold text-gray-900">{items[0]?.title || "Document"}</h1>
+            <p className="text-[12px] text-gray-400">PDF</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-5 space-y-4">
+        {items.map((item, i) => (
+          <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {item.title && i > 0 && (
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-[14px] font-semibold text-gray-800">{item.title}</p>
+              </div>
+            )}
+            {item.src.startsWith("data:") ? (
+              <>
+                <iframe src={item.src} className="w-full" style={{ height: "60vh", border: "none" }} title={item.title || "PDF"} />
+                <div className="px-4 py-3 border-t border-gray-100">
+                  <a
+                    href={item.src}
+                    download={item.title ? `${item.title}.pdf` : "document.pdf"}
+                    className="flex items-center gap-2 text-[13px] font-medium"
+                    style={{ color: "#4C80F1" }}
+                  >
+                    <Download className="w-4 h-4" /> Download PDF
+                  </a>
+                </div>
+              </>
+            ) : (
+              <a
+                href={item.src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <FileText className="w-5 h-5 shrink-0" style={{ color: "#4C80F1" }} />
+                <span className="flex-1 text-[14px] font-medium text-gray-800 truncate">{item.title || item.src}</span>
+                <ExternalLink className="w-4 h-4 text-gray-400 shrink-0" />
+              </a>
+            )}
+          </div>
+        ))}
+        {!items.length && <p className="text-center text-gray-400 text-sm py-16">No PDF available.</p>}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Video landing ─────────────────────────────────────────────────────── */
+function VideoLanding({ data }: { data: Record<string, any> }) {
+  const items: { title: string; src: string }[] = (data.items || []).filter((i: any) => i.src);
+
+  return (
+    <div className="min-h-screen bg-gray-950 font-sans">
+      <div className="px-5 pt-8 pb-4">
+        <div className="max-w-lg mx-auto flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#4C80F1" }}>
+            <Video className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-[18px] font-bold text-white">{items[0]?.title || "Video"}</h1>
+        </div>
+        <div className="max-w-lg mx-auto space-y-5">
+          {items.map((item, i) => (
+            <div key={i} className="rounded-2xl overflow-hidden bg-black shadow-2xl">
+              {item.title && i > 0 && (
+                <p className="px-4 py-3 text-[14px] font-semibold text-white border-b border-white/10">{item.title}</p>
+              )}
+              <video
+                src={item.src}
+                controls
+                playsInline
+                className="w-full"
+                style={{ maxHeight: "70vh" }}
+              />
+            </div>
+          ))}
+          {!items.length && <p className="text-center text-gray-500 text-sm py-16">No video available.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Audio landing ─────────────────────────────────────────────────────── */
+function AudioLanding({ data }: { data: Record<string, any> }) {
+  const items: { title: string; src: string; artist?: string }[] = (data.items || []).filter((i: any) => i.src);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center py-10 px-4"
+      style={{ background: "linear-gradient(160deg, #0f0f1a 0%, #1a1a2e 60%, #0f172a 100%)" }}>
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl mb-4"
+            style={{ background: "linear-gradient(135deg, #4C80F1, #A855F7)" }}>
+            <Headphones className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-[22px] font-bold text-white text-center">
+            {items[0]?.title || "Audio"}
+          </h1>
+          {items[0]?.artist && (
+            <p className="text-[14px] text-gray-400 mt-1">{items[0].artist}</p>
+          )}
+        </div>
+        <div className="space-y-4">
+          {items.map((item, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur border border-white/10 rounded-2xl p-4">
+              {(item.title && i > 0) && (
+                <div className="mb-2">
+                  <p className="text-[14px] font-semibold text-white">{item.title}</p>
+                  {item.artist && <p className="text-[12px] text-gray-400">{item.artist}</p>}
+                </div>
+              )}
+              <audio src={item.src} controls className="w-full" style={{ accentColor: "#4C80F1" }} />
+            </div>
+          ))}
+          {!items.length && <p className="text-center text-gray-500 text-sm py-8">No audio available.</p>}
         </div>
       </div>
     </div>
