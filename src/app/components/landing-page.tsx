@@ -282,32 +282,21 @@ function PdfLanding({ data }: { data: Record<string, any> }) {
                 <p className="text-[14px] font-semibold text-gray-800">{item.title}</p>
               </div>
             )}
-            {item.src.startsWith("data:") ? (
-              <>
-                <iframe src={item.src} className="w-full" style={{ height: "60vh", border: "none" }} title={item.title || "PDF"} />
-                <div className="px-4 py-3 border-t border-gray-100">
-                  <a
-                    href={item.src}
-                    download={item.title ? `${item.title}.pdf` : "document.pdf"}
-                    className="flex items-center gap-2 text-[13px] font-medium"
-                    style={{ color: "#4C80F1" }}
-                  >
-                    <Download className="w-4 h-4" /> Download PDF
-                  </a>
-                </div>
-              </>
-            ) : (
-              <a
-                href={item.src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <FileText className="w-5 h-5 shrink-0" style={{ color: "#4C80F1" }} />
-                <span className="flex-1 text-[14px] font-medium text-gray-800 truncate">{item.title || item.src}</span>
-                <ExternalLink className="w-4 h-4 text-gray-400 shrink-0" />
-              </a>
-            )}
+            <>
+              <iframe src={item.src} className="w-full" style={{ height: "60vh", border: "none" }} title={item.title || "PDF"} />
+              <div className="px-4 py-3 border-t border-gray-100">
+                <a
+                  href={item.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={item.src.startsWith("data:") ? (item.title ? `${item.title}.pdf` : "document.pdf") : undefined}
+                  className="flex items-center gap-2 text-[13px] font-medium"
+                  style={{ color: "#4C80F1" }}
+                >
+                  <Download className="w-4 h-4" /> {item.src.startsWith("data:") ? "Download PDF" : "Open PDF"}
+                </a>
+              </div>
+            </>
           </div>
         ))}
         {!items.length && <p className="text-center text-gray-400 text-sm py-16">No PDF available.</p>}

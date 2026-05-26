@@ -236,18 +236,33 @@ function CropModal({ src, onCrop, onCancel }: {
   );
 }
 
-/* ── Upload-or-URL widget ─────────────────────────────────────────────── */
-async function uploadToHost(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("reqtype", "fileupload");
-  form.append("fileToUpload", file);
-  const res = await fetch("https://catbox.moe/user.php", { method: "POST", body: form });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text.startsWith("http")) throw new Error("Unexpected response");
-  return text;
+/* ── Upload helpers ───────────────────────────────────────────────────── */
+function cldResourceType(file: File) {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "video";
+  return "raw";
 }
 
+async function uploadToHost(file: File): Promise<string> {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const preset    = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  if (!cloudName || !preset) throw new Error("Upload not configured.");
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", preset);
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/${cldResourceType(file)}/upload`,
+    { method: "POST", body: form }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  return (await res.json()).secure_url as string;
+}
+
+/* ── Upload-or-URL widget ─────────────────────────────────────────────── */
 function MediaItemRow({
   item,
   index,
@@ -268,7 +283,7 @@ function MediaItemRow({
   canRemove: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading]     = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
@@ -276,17 +291,16 @@ function MediaItemRow({
     setUploadError(null);
     try {
       const hostedUrl = await uploadToHost(file);
-      onUpdate({ url: hostedUrl, fileName: file.name, fileUrl: "" });
-    } catch {
-      setUploadError("Upload failed — check your connection and try again, or use URL mode.");
+      onUpdate({ fileUrl: hostedUrl, fileName: file.name, url: "" });
+    } catch (err: any) {
+      setUploadError(err?.message?.length < 150 ? err.message : "Upload failed. Please try again.");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
-  // A file is "hosted" when mode=upload and we have a url (set by handleFile)
-  const isHosted = item.mode === "upload" && !!item.url && !!item.fileName;
+  const isHosted = item.mode === "upload" && !!item.fileName && (!!item.url || !!item.fileUrl);
 
   return (
     <div className="bg-gray-50/80 rounded-xl p-3 space-y-2">
@@ -299,7 +313,6 @@ function MediaItemRow({
         )}
       </div>
 
-      {/* Title */}
       <input
         className={inp}
         placeholder="Title (optional)"
@@ -307,12 +320,11 @@ function MediaItemRow({
         onChange={(e) => onUpdate({ title: e.target.value })}
       />
 
-      {/* Mode toggle */}
       <div className="flex rounded-lg overflow-hidden border border-gray-200 w-fit">
         {(["url", "upload"] as const).map((m) => (
           <button
             key={m}
-            onClick={() => onUpdate({ mode: m, url: "", fileName: "", fileUrl: "" })}
+            onClick={() => { onUpdate({ mode: m, url: "", fileName: "", fileUrl: "" }); setUploadError(null); }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] transition-colors cursor-pointer"
             style={item.mode === m
               ? { backgroundColor: PRIMARY, color: "white" }
@@ -347,7 +359,7 @@ function MediaItemRow({
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
               <span className="text-[11px] text-gray-700 truncate flex-1">{item.fileName}</span>
-              <span className="text-[10px] text-green-500 font-medium shrink-0">Hosted</span>
+              <span className="text-[10px] text-green-500 font-medium shrink-0">  {/* Hosted */} </span>
               <button onClick={() => onUpdate({ url: "", fileName: "", fileUrl: "" })} className="shrink-0 cursor-pointer ml-1">
                 <X className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
               </button>

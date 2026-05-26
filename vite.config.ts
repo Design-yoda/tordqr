@@ -19,4 +19,15 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    proxy: {
+      // In dev, proxy /api/upload to catbox.moe server-side (no CORS issue)
+      '/api/upload': {
+        target: 'https://catbox.moe',
+        changeOrigin: true,
+        rewrite: () => '/user.php',
+      },
+    },
+  },
 })
