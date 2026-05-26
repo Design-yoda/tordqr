@@ -919,6 +919,10 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
   }
 }
 
+function encodeQRData(payload: unknown): string {
+  return encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+}
+
 /* ── Build QR string value ─────────────────────────────────────────────── */
 function buildValue(
   type: QRType,
@@ -961,7 +965,7 @@ function buildValue(
       if (!valid.length && !fields.socialTitle) return "";
       const payload = { title: fields.socialTitle || "My Links", desc: fields.socialDesc || "", links: valid };
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=social&d=${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+      return `${base}#view?type=social&d=${encodeQRData(payload)}`;
     }
     case "menu": {
       const hasItems = menuCategories.some((c) => c.items.some((i) => i.name.trim()));
@@ -974,14 +978,14 @@ function buildValue(
       }));
       const payload = { name: fields.restaurantName || "Restaurant", desc: fields.menuDesc || "", brandColor: fields.brandColor || "#F97316", categories: cleanCategories };
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=menu&d=${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+      return `${base}#view?type=menu&d=${encodeQRData(payload)}`;
     }
     case "appstore": return fields.appleUrl || fields.googleUrl || "";
     case "coupon": {
       if (!fields.couponCode && !fields.couponTitle) return "";
       const payload = { title: fields.couponTitle || "", code: fields.couponCode || "", discount: fields.discount || "", expires: fields.expiryDate || "", desc: fields.couponDesc || "" };
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=coupon&d=${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+      return `${base}#view?type=coupon&d=${encodeQRData(payload)}`;
     }
     case "pdf": {
       const first = pdfItems.find((p) => p.url.trim() || p.fileUrl);
@@ -990,7 +994,7 @@ function buildValue(
       const uploadedPdf = pdfItems.filter((p) => p.fileUrl).map((p) => ({ title: p.title, src: p.fileUrl }));
       if (!uploadedPdf.length) return "";
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=pdf&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedPdf }))))}`;
+      return `${base}#view?type=pdf&d=${encodeQRData({ items: uploadedPdf })}`;
     }
     case "video": {
       const first = videoItems.find((v) => v.url.trim() || v.fileUrl);
@@ -999,7 +1003,7 @@ function buildValue(
       const uploadedVideo = videoItems.filter((v) => v.fileUrl).map((v) => ({ title: v.title, src: v.fileUrl }));
       if (!uploadedVideo.length) return "";
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=video&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedVideo }))))}`;
+      return `${base}#view?type=video&d=${encodeQRData({ items: uploadedVideo })}`;
     }
     case "audio": {
       const first = audioItems.find((a) => a.url.trim() || a.fileUrl);
@@ -1008,14 +1012,14 @@ function buildValue(
       const uploadedAudio = audioItems.filter((a) => a.fileUrl).map((a) => ({ title: a.title, src: a.fileUrl, artist: a.artist }));
       if (!uploadedAudio.length) return "";
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=audio&d=${btoa(unescape(encodeURIComponent(JSON.stringify({ items: uploadedAudio }))))}`;
+      return `${base}#view?type=audio&d=${encodeQRData({ items: uploadedAudio })}`;
     }
     case "links": {
       const valid = linkItems.filter((l) => l.url.trim());
       if (!valid.length && !fields.linksTitle) return "";
       const payload = { title: fields.linksTitle || "My Links", links: valid };
       const base = window.location.href.split("#")[0];
-      return `${base}#view?type=links&d=${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+      return `${base}#view?type=links&d=${encodeQRData(payload)}`;
     }
     default: return "";
   }
