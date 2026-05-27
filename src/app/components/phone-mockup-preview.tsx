@@ -1,4 +1,5 @@
 import type { QRType } from "./qr-type-selector";
+import { WhatsAppIcon } from "./whatsapp-icon";
 import {
   Globe,
   Wifi,
@@ -18,15 +19,12 @@ import {
   Linkedin,
   Github,
   Music,
-  MessageCircle,
   ChevronLeft,
   Lock,
   Check,
   MapPin,
   Star,
-  Download,
   Tag,
-  FileText,
   Music2,
   List,
   Play,
@@ -52,7 +50,7 @@ const PLATFORM_META: Record<string, { icon: React.ElementType; color: string; la
   linkedin:  { icon: Linkedin,  color: "#0A66C2", label: "LinkedIn" },
   github:    { icon: Github,    color: "#181717", label: "GitHub" },
   tiktok:    { icon: Music,     color: "#000000", label: "TikTok" },
-  whatsapp:  { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+  whatsapp:  { icon: WhatsAppIcon,  color: "#25D366", label: "WhatsApp" },
   website:   { icon: Globe,     color: "#4C80F1", label: "Website" },
 };
 
@@ -76,7 +74,7 @@ export function PhoneMockupPreview({ type, value, meta }: PhoneMockupPreviewProp
             borderRadius: 46,
             background: "linear-gradient(160deg, #48484A 0%, #1C1C1E 40%, #2C2C2E 100%)",
             padding: 10,
-            boxShadow: "0 0 0 1px #48484A, 0 32px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
+            boxShadow: "0 0 0 1px #48484a0e, 0 32px 80px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
         >
           {/* Screen */}
@@ -106,18 +104,18 @@ export function PhoneMockupPreview({ type, value, meta }: PhoneMockupPreviewProp
 function StatusBar() {
   return (
     <div className="absolute top-0 left-0 right-0 z-30" style={{ height: 52 }}>
-      {/* Dynamic Island pill – black, vertically centered in status bar */}
+      {/* Dynamic Island pill – black, vertically centered in status bar 
       <div
         className="absolute left-1/2 -translate-x-1/2"
         style={{
           top: 10,
-          width: 96,
-          height: 28,
+          width: 40,
+          height: 14,
           backgroundColor: "#000",
           borderRadius: 50,
           zIndex: 10,
         }}
-      />
+      /> */}
       {/* Time left / icons right – sit beside the pill */}
       <div
         className="absolute inset-0 flex items-center justify-between"
@@ -168,7 +166,7 @@ function PhoneContent({ type, value, meta }: { type: QRType; value: string; meta
     case "menu":     return <MenuPhonePreview meta={meta} />;
     case "appstore": return <AppStorePreview meta={meta} />;
     case "coupon":   return <CouponPreview meta={meta} />;
-    case "pdf":      return <PDFPreview meta={meta} />;
+    case "whatsapp": return <WhatsAppPreview value={value} />;
     case "video":    return <VideoPreview meta={meta} />;
     case "audio":    return <AudioPreview meta={meta} />;
     case "links":    return <LinksPreview meta={meta} />;
@@ -543,6 +541,7 @@ function SocialPhonePreview({ meta }: { meta?: Record<string, any> }) {
 function MenuPhonePreview({ meta }: { meta?: Record<string, any> }) {
   const name       = meta?.restaurantName || "Restaurant";
   const brandColor = meta?.brandColor || "#F97316";
+  const currency   = meta?.currency || "$";
   const logoUrl    = meta?.logoUrl;
   const categories = meta?.categories || [];
   const hasItems   = categories.some((c: any) => c.items?.some((i: any) => i.name?.trim()));
@@ -554,7 +553,7 @@ function MenuPhonePreview({ meta }: { meta?: Record<string, any> }) {
         <div className="flex items-center gap-3">
           {logoUrl ? (
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/20 border border-white/30 shrink-0">
-              <img src={logoUrl} alt="" className="w-full h-full object-contain p-1" />
+              <img src={logoUrl} alt="" className="w-full h-full object-cover" />
             </div>
           ) : (
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -612,7 +611,7 @@ function MenuPhonePreview({ meta }: { meta?: Record<string, any> }) {
                     </div>
                     {item.price && (
                       <span className="text-[10px] font-bold shrink-0" style={{ color: brandColor }}>
-                        {item.price.startsWith("$") ? item.price : `$${item.price}`}
+                        {currency}{item.price.replace(/^\$/, "")}
                       </span>
                     )}
                   </div>
@@ -715,59 +714,60 @@ function CouponPreview({ meta }: { meta?: Record<string, any> }) {
   );
 }
 
-/* ─── PDF ───────────────────────────────────────────────────────────────── */
-function PDFPreview({ meta }: { meta?: Record<string, any> }) {
-  const items: { title: string; url: string; fileUrl?: string; fileName?: string }[] =
-    meta?.pdfItems?.filter((p: any) => p.title || p.url || p.fileUrl) || [];
-  const first = items[0];
-  const displayTitle = first?.title || first?.fileName || "Document.pdf";
+/* ─── WhatsApp ───────────────────────────────────────────────────────────── */
+function WhatsAppPreview({ value }: { value: string }) {
+  let phone = "";
+  let message = "";
+  try {
+    const url = new URL(value || "https://wa.me/");
+    phone = url.pathname.replace("/", "");
+    message = decodeURIComponent(url.searchParams.get("text") || "");
+  } catch { /* keep empty */ }
+
+  const displayPhone = phone ? `+${phone}` : "+1 234 567 8900";
+  const displayMsg = message || "Hello! I'd like to get in touch…";
 
   return (
-    <div className="h-full bg-[#F2F2F7] flex flex-col">
-      <div className="bg-[#F2F2F7] px-4 pt-2 pb-3 border-b border-gray-200 flex items-center justify-between">
-        <ChevronLeft className="w-4 h-4 text-[#4C80F1]" />
-        <span className="text-[12px] font-semibold text-gray-900">Files</span>
-        <div className="w-4" />
-      </div>
-      {items.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-[10px] text-gray-300">Add a PDF to preview</p>
+    <div className="h-full flex flex-col" style={{ backgroundColor: "#ECE5DD" }}>
+      {/* WhatsApp header */}
+      <div className="flex items-center gap-2 px-3 py-2" style={{ backgroundColor: "#075E54" }}>
+        <ChevronLeft className="w-4 h-4 text-white" />
+        <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center shrink-0">
+          <WhatsAppIcon className="w-4 h-4 text-white" />
         </div>
-      ) : items.length === 1 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-28 h-36 rounded-xl bg-white shadow-md flex flex-col overflow-hidden border border-gray-200 mb-4">
-            <div className="h-2 w-full bg-red-500" />
-            <div className="flex-1 flex flex-col items-center justify-center p-3">
-              <FileText className="w-8 h-8 text-red-500 mb-2" />
-              <div className="space-y-1 w-full">
-                {[1,2,3,4].map((i) => <div key={i} className="h-1.5 bg-gray-100 rounded" style={{ width: i === 3 ? "60%" : "100%" }} />)}
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-semibold text-white truncate">{displayPhone}</div>
+          <div className="text-[9px] text-green-200">tap to chat</div>
+        </div>
+        <Phone className="w-3.5 h-3.5 text-white" />
+      </div>
+      {/* Chat area */}
+      <div className="flex-1 p-3 flex flex-col justify-end gap-2">
+        {!phone ? (
+          <div className="flex items-center justify-center flex-1">
+            <p className="text-[10px] text-gray-400 bg-white/60 px-3 py-1.5 rounded-full">Enter a phone number to preview</p>
+          </div>
+        ) : (
+          <div className="self-end max-w-[75%]">
+            <div className="bg-[#DCF8C6] rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm">
+              <p className="text-[10px] text-gray-800 leading-relaxed">{displayMsg}</p>
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className="text-[8px] text-gray-400">now</span>
+                <Check className="w-2.5 h-2.5 text-[#34B7F1]" />
               </div>
-            </div>
-            <div className="text-center pb-2">
-              <span className="text-[8px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded">PDF</span>
             </div>
           </div>
-          <div className="text-[12px] font-semibold text-gray-800 mb-1 text-center max-w-full truncate px-2">{displayTitle}</div>
-          <button className="flex items-center gap-2 px-5 py-2 rounded-full text-white text-[12px] font-semibold" style={{ backgroundColor: "#4C80F1" }}>
-            <Download className="w-4 h-4" /> Open PDF
-          </button>
+        )}
+      </div>
+      {/* Input bar */}
+      <div className="flex items-center gap-2 px-2 py-2 bg-[#F0F0F0]">
+        <div className="flex-1 bg-white rounded-full px-3 py-1.5">
+          <p className="text-[9px] text-gray-300">Type a message</p>
         </div>
-      ) : (
-        <div className="flex-1 p-3 space-y-2 overflow-auto">
-          {items.map((item, i) => (
-            <div key={i} className="bg-white rounded-xl px-3 py-2.5 flex items-center gap-3 shadow-sm">
-              <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5 text-red-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-semibold text-gray-800 truncate">{item.title || item.fileName || `Document ${i + 1}`}</div>
-                <div className="text-[9px] text-gray-400">PDF · tap to open</div>
-              </div>
-              <Download className="w-4 h-4 shrink-0" style={{ color: "#4C80F1" }} />
-            </div>
-          ))}
+        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#25D366" }}>
+          <WhatsAppIcon className="w-3.5 h-3.5 text-white" />
         </div>
-      )}
+      </div>
     </div>
   );
 }

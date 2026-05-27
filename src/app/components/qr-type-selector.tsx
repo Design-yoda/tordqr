@@ -10,11 +10,11 @@ import {
   UtensilsCrossed,
   Smartphone,
   Tag,
-  FileText,
   Video,
   Music2,
   List,
 } from "lucide-react";
+import { WhatsAppIcon } from "./whatsapp-icon";
 
 export type QRType =
   | "url"
@@ -28,7 +28,7 @@ export type QRType =
   | "menu"
   | "appstore"
   | "coupon"
-  | "pdf"
+  | "whatsapp"
   | "video"
   | "audio"
   | "links";
@@ -50,7 +50,7 @@ const types: { id: QRType; label: string; icon: React.ElementType }[] = [
   { id: "menu",     label: "Menu",     icon: UtensilsCrossed },
   { id: "appstore", label: "App Store",icon: Smartphone },
   { id: "coupon",   label: "Coupon",   icon: Tag },
-  { id: "pdf",      label: "PDF",      icon: FileText },
+  { id: "whatsapp", label: "WhatsApp",  icon: WhatsAppIcon },
   { id: "video",    label: "Video",    icon: Video },
   { id: "audio",    label: "Audio",    icon: Music2 },
   { id: "links",    label: "Links",    icon: List },
@@ -65,10 +65,10 @@ export function QRTypeSelector({ selected, onChange }: QRTypeSelectorProps) {
           onClick={() => onChange(id)}
           className={`flex flex-col items-center gap-1 px-1 py-2.5 sm:py-3 rounded-xl transition-all cursor-pointer ${
             selected === id
-              ? "text-white shadow-lg scale-[1.02]"
-              : "bg-white/60 text-gray-500 hover:bg-white hover:shadow-md hover:text-gray-700 border border-gray-100/80"
+              ? "text-white shadow-md scale-[1.02]"
+              : "bg-white/100 text-gray-500 hover:bg-white hover:shadow-sm hover:text-gray-700 border border-gray-100/80"
           }`}
-          style={selected === id ? { backgroundColor: "#4C80F1", boxShadow: "0 4px 14px #4C80F140" } : {}}
+          style={selected === id ? { backgroundColor: "#4C80F1", boxShadow: "0 0px 12px #4c80f176" } : {}}
         >
           <Icon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
           <span className="text-[9px] sm:text-[10px] tracking-wide whitespace-nowrap">{label}</span>

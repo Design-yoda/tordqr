@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
-  UtensilsCrossed, Star, ExternalLink, Tag, Globe, List,
+  UtensilsCrossed, Tag, Globe, List,
   Instagram, Twitter, Facebook, Youtube, Linkedin, Github,
-  Music, MessageCircle, ChevronRight, FileText, Video, Headphones, Download,
+  Music, ChevronRight, Video, Headphones,
 } from "lucide-react";
+import { WhatsAppIcon } from "./whatsapp-icon";
 
 const PLATFORM_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   instagram: { icon: Instagram,     color: "#E4405F", label: "Instagram" },
@@ -12,7 +14,7 @@ const PLATFORM_META: Record<string, { icon: React.ElementType; color: string; la
   linkedin:  { icon: Linkedin,      color: "#0A66C2", label: "LinkedIn" },
   github:    { icon: Github,        color: "#181717", label: "GitHub" },
   tiktok:    { icon: Music,         color: "#000000", label: "TikTok" },
-  whatsapp:  { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+  whatsapp:  { icon: WhatsAppIcon,  color: "#25D366", label: "WhatsApp" },
   website:   { icon: Globe,         color: "#4C80F1", label: "Website" },
 };
 
@@ -27,7 +29,6 @@ export function LandingPage({ type, data }: LandingPageProps) {
     case "social": return <SocialLanding data={data} />;
     case "coupon": return <CouponLanding data={data} />;
     case "links":  return <LinksLanding  data={data} />;
-    case "pdf":    return <PdfLanding    data={data} />;
     case "video":  return <VideoLanding  data={data} />;
     case "audio":  return <AudioLanding  data={data} />;
     default:
@@ -44,37 +45,59 @@ function MenuLanding({ data }: { data: Record<string, any> }) {
   const name       = data.name       || "Restaurant";
   const desc       = data.desc       || "";
   const brandColor = data.brandColor || "#F97316";
-  const categories = data.categories || [];
-  const hasItems   = categories.some((c: any) => c.items?.some((i: any) => i.name?.trim()));
+  const currency   = data.currency   || "$";
+  const logoUrl    = data.logoUrl    || "";
+  const categories: any[] = data.categories || [];
+  const visibleCats = categories.filter((c: any) => c.items?.some((i: any) => i.name?.trim()));
+  const hasItems = visibleCats.length > 0;
+
+  const [activeCategory, setActiveCategory] = useState<string | null>(null); // null = All
+
+  const displayCats = activeCategory === null
+    ? visibleCats
+    : visibleCats.filter((c: any) => c.name === activeCategory);
 
   return (
     <div className="min-h-screen bg-white font-sans">
       {/* Hero header */}
       <div className="text-white px-5 pt-10 pb-6" style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${brandColor}CC 100%)` }}>
         <div className="max-w-lg mx-auto">
-          <div className="flex items-center gap-2 mb-2 opacity-80">
-            <UtensilsCrossed className="w-4 h-4" />
-            <span className="text-[11px] uppercase tracking-widest font-semibold">Menu</span>
-          </div>
-          <h1 className="text-[28px] font-black leading-tight">{name}</h1>
-          {desc && <p className="text-[14px] mt-1 opacity-80">{desc}</p>}
-          <div className="flex items-center gap-1 mt-2">
-            {[1,2,3,4,5].map((s) => <Star key={s} className="w-3 h-3 fill-white/80 text-white/80" />)}
-            <span className="text-[11px] opacity-70 ml-1">4.8 · Excellent</span>
+          <div className="flex items-center gap-4">
+            {logoUrl && (
+              <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/20 border-2 border-white/30 shrink-0">
+                <img src={logoUrl} alt={name} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 opacity-80">
+                <UtensilsCrossed className="w-4 h-4" />
+                <span className="text-[11px] uppercase tracking-widest font-semibold">Menu</span>
+              </div>
+              <h1 className="text-[28px] font-black leading-tight">{name}</h1>
+              {desc && <p className="text-[14px] mt-1 opacity-80">{desc}</p>}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Category tabs */}
+      {/* Category tabs — All + individual */}
       {hasItems && (
         <div className="sticky top-0 bg-white border-b border-gray-100 shadow-sm z-10">
           <div className="max-w-lg mx-auto flex gap-2 px-4 py-3 overflow-x-auto">
-            {categories.filter((c: any) => c.items?.some((i: any) => i.name?.trim())).map((cat: any, i: number) => (
-              <a key={i} href={`#cat-${i}`}
-                className="text-[12px] px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0 transition-colors"
-                style={i === 0 ? { backgroundColor: brandColor, color: "white" } : { backgroundColor: "#F3F4F6", color: "#6B7280" }}>
+            <button
+              onClick={() => setActiveCategory(null)}
+              className="text-[12px] px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0 transition-colors cursor-pointer"
+              style={activeCategory === null ? { backgroundColor: brandColor, color: "white" } : { backgroundColor: "#F3F4F6", color: "#6B7280" }}>
+              All
+            </button>
+            {visibleCats.map((cat: any, i: number) => (
+              <button
+                key={i}
+                onClick={() => setActiveCategory(cat.name)}
+                className="text-[12px] px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0 transition-colors cursor-pointer"
+                style={activeCategory === cat.name ? { backgroundColor: brandColor, color: "white" } : { backgroundColor: "#F3F4F6", color: "#6B7280" }}>
                 {cat.name || "Category"}
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -82,11 +105,11 @@ function MenuLanding({ data }: { data: Record<string, any> }) {
 
       {/* Items */}
       <div className="max-w-lg mx-auto px-4 py-5 space-y-6">
-        {hasItems ? categories.map((cat: any, ci: number) => {
+        {hasItems ? displayCats.map((cat: any, ci: number) => {
           const items = (cat.items || []).filter((i: any) => i.name?.trim());
           if (!items.length) return null;
           return (
-            <div key={ci} id={`cat-${ci}`}>
+            <div key={ci}>
               {cat.name && (
                 <h2 className="text-[13px] font-black uppercase tracking-wider mb-3" style={{ color: brandColor }}>
                   {cat.name}
@@ -103,7 +126,7 @@ function MenuLanding({ data }: { data: Record<string, any> }) {
                     </div>
                     {item.price && (
                       <span className="font-black text-[16px] shrink-0" style={{ color: brandColor }}>
-                        {item.price.startsWith("$") ? item.price : `$${item.price}`}
+                        {currency}{item.price.replace(/^\$/, "")}
                       </span>
                     )}
                   </div>
@@ -121,8 +144,9 @@ function MenuLanding({ data }: { data: Record<string, any> }) {
 
 /* ─── Social landing ────────────────────────────────────────────────────── */
 function SocialLanding({ data }: { data: Record<string, any> }) {
-  const title = data.title || "My Links";
-  const desc  = data.desc  || "";
+  const title          = data.title          || "My Links";
+  const desc           = data.desc           || "";
+  const profileImageUrl = data.profileImageUrl || "";
   const links: { platform: string; url: string }[] = (data.links || []).filter((l: any) => l.url?.trim());
 
   return (
@@ -131,10 +155,18 @@ function SocialLanding({ data }: { data: Record<string, any> }) {
       <div className="w-full max-w-sm">
         {/* Avatar */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-[30px] font-black mb-3 shadow-lg"
-            style={{ background: "linear-gradient(135deg, #4C80F1, #A855F7)" }}>
-            {(title || "M")[0].toUpperCase()}
-          </div>
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt={title}
+              className="w-20 h-20 rounded-full object-cover mb-3 shadow-lg border-2 border-white/20"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-[30px] font-black mb-3 shadow-lg"
+              style={{ background: "linear-gradient(135deg, #4C80F1, #A855F7)" }}>
+              {(title || "M")[0].toUpperCase()}
+            </div>
+          )}
           <h1 className="text-[22px] font-bold text-white">{title}</h1>
           {desc && <p className="text-[14px] text-gray-400 mt-1 text-center">{desc}</p>}
         </div>
@@ -258,53 +290,6 @@ function LinksLanding({ data }: { data: Record<string, any> }) {
 }
 
 /* ─── PDF landing ───────────────────────────────────────────────────────── */
-function PdfLanding({ data }: { data: Record<string, any> }) {
-  const items: { title: string; src: string }[] = (data.items || []).filter((i: any) => i.src);
-
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
-      <div className="px-5 pt-8 pb-4 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#4C80F1" }}>
-            <FileText className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[18px] font-bold text-gray-900">{items[0]?.title || "Document"}</h1>
-            <p className="text-[12px] text-gray-400">PDF</p>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-5 space-y-4">
-        {items.map((item, i) => (
-          <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {item.title && i > 0 && (
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-[14px] font-semibold text-gray-800">{item.title}</p>
-              </div>
-            )}
-            <>
-              <iframe src={item.src} className="w-full" style={{ height: "60vh", border: "none" }} title={item.title || "PDF"} />
-              <div className="px-4 py-3 border-t border-gray-100">
-                <a
-                  href={item.src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={item.src.startsWith("data:") ? (item.title ? `${item.title}.pdf` : "document.pdf") : undefined}
-                  className="flex items-center gap-2 text-[13px] font-medium"
-                  style={{ color: "#4C80F1" }}
-                >
-                  <Download className="w-4 h-4" /> {item.src.startsWith("data:") ? "Download PDF" : "Open PDF"}
-                </a>
-              </div>
-            </>
-          </div>
-        ))}
-        {!items.length && <p className="text-center text-gray-400 text-sm py-16">No PDF available.</p>}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Video landing ─────────────────────────────────────────────────────── */
 function VideoLanding({ data }: { data: Record<string, any> }) {
   const items: { title: string; src: string }[] = (data.items || []).filter((i: any) => i.src);
@@ -353,19 +338,14 @@ function AudioLanding({ data }: { data: Record<string, any> }) {
             style={{ background: "linear-gradient(135deg, #4C80F1, #A855F7)" }}>
             <Headphones className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-[22px] font-bold text-white text-center">
-            {items[0]?.title || "Audio"}
-          </h1>
-          {items[0]?.artist && (
-            <p className="text-[14px] text-gray-400 mt-1">{items[0].artist}</p>
-          )}
+          <h1 className="text-[22px] font-bold text-white text-center">Audio</h1>
         </div>
         <div className="space-y-4">
           {items.map((item, i) => (
             <div key={i} className="bg-white/10 backdrop-blur border border-white/10 rounded-2xl p-4">
-              {(item.title && i > 0) && (
+              {(item.title || item.artist) && (
                 <div className="mb-2">
-                  <p className="text-[14px] font-semibold text-white">{item.title}</p>
+                  {item.title && <p className="text-[14px] font-semibold text-white">{item.title}</p>}
                   {item.artist && <p className="text-[12px] text-gray-400">{item.artist}</p>}
                 </div>
               )}

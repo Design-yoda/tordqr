@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { QRTypeSelector, type QRType } from "./components/qr-type-selector";
 import { QRForm } from "./components/qr-form";
 import { QRCustomizer, type QRStyleOptions } from "./components/qr-customizer";
@@ -57,6 +57,17 @@ export default function App() {
   const [meta, setMeta] = useState<Record<string, any>>({});
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
   const [previewTab, setPreviewTab] = useState<"preview" | "qrcode">("qrcode");
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const LANDING_PAGE_TYPES: QRType[] = ["social", "menu", "coupon", "links", "pdf", "video", "audio"];
+  const hasLandingPage = LANDING_PAGE_TYPES.includes(qrType);
+  const effectivePreviewTab = hasLandingPage ? previewTab : "qrcode";
 
   const updateOptions = useCallback(
     (partial: Partial<QRStyleOptions>) => {
@@ -73,19 +84,19 @@ export default function App() {
     <div
       className="min-h-screen w-full flex flex-col"
       style={{
-        fontFamily: "'Onest', system-ui, sans-serif",
+        fontFamily: "'Parkinsans', system-ui, sans-serif",
         background:
-          "linear-gradient(145deg, #f0f4ff 0%, #e8effe 25%, #e0e7ff 50%, #dbeafe 75%, #f0f9ff 100%)",
+          "#F5F5F7",
       }}
     >
       {/* Header */}
-      <header className="w-full py-4 px-4 sm:px-6 border-b border-white/0 bg-white/30 backdrop-blur-md sticky top-0 z-30">
+      <header className={`w-full py-4 px-4 sm:px-6 sticky top-0 z-30 transition-all duration-300 ${scrolled ? "bg-white/70 backdrop-blur-md border-b border-white/60 shadow-sm" : "bg-transparent border-b border-transparent"}`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
             <img src={logoUrl} alt="Tord QR" className="h-7 sm:h-8" />
           </div>
-          <span className="text-[12px] text-gray-400 hidden sm:block">
-            Free QR Code Generator
+          <span className="text-[14px] text-gray-900 hidden sm:block" style={{ fontWeight: 600 }}>
+            <a href="#" className="nav-cta">Buy me a Coffee</a>
           </span>
         </div>
       </header>
@@ -97,7 +108,7 @@ export default function App() {
           <div className="text-center mb-6 mt-5 sm:mt-6">
             <h1
               className="text-[24px] sm:text-[36px] tracking-tight text-gray-900"
-              style={{ fontWeight: 800 }}
+              style={{ fontWeight: 600 }}
             >
               Generate QR Codes Instantly{" "}
               {/* <span style={{ color: "#4C80F1" }}>Instantly</span> */}
@@ -109,7 +120,7 @@ export default function App() {
           </div>
 
           {/* Type Selector */}
-          <div className="max-w-3xl mx-auto mb-6">
+          <div className="max-w-3xl mx-auto mb-6 ">
             <QRTypeSelector selected={qrType} onChange={setQrType} />
           </div>
 
@@ -120,7 +131,7 @@ export default function App() {
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] transition-all cursor-pointer ${
                 mobileTab === "edit"
                   ? "text-white shadow-lg"
-                  : "bg-white/50 text-gray-600 border border-gray-200/50"
+                  : "bg-white/100 text-gray-600 border border-gray-200/50"
               }`}
               style={mobileTab === "edit" ? { backgroundColor: "#4C80F1" } : {}}
             >
@@ -130,7 +141,7 @@ export default function App() {
               onClick={() => setMobileTab("preview")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] transition-all cursor-pointer ${
                 mobileTab === "preview"
-                  ? "text-white shadow-lg"
+                  ? "text-white shadow-md"
                   : "bg-white/50 text-gray-600 border border-gray-200/50"
               }`}
               style={mobileTab === "preview" ? { backgroundColor: "#4C80F1" } : {}}
@@ -148,7 +159,7 @@ export default function App() {
               }`}
             >
               {/* Content Card */}
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4 sm:p-5 border border-white/80 shadow-xl shadow-gray-200/30">
+              <div className="bg-white/100 backdrop-blur-sm rounded-2xl p-4 sm:p-5 border border-white/80 shadow-none">
                 <h3
                   className="text-[14px] text-gray-800 mb-3"
                   style={{ fontWeight: 600 }}
@@ -163,7 +174,7 @@ export default function App() {
               </div>
 
               {/* Customizer Card */}
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl border border-white/80 shadow-xl shadow-gray-200/30 overflow-hidden">
+              <div className="bg-white/100 backdrop-blur-sm rounded-2xl border border-white/80 shadow-none overflow-hidden">
                 <button
                   onClick={() => setShowCustomize(!showCustomize)}
                   className="w-full flex items-center justify-between px-4 sm:px-5 py-3.5 cursor-pointer hover:bg-white/30 transition-colors"
@@ -197,44 +208,46 @@ export default function App() {
                 mobileTab !== "preview" ? "hidden lg:block" : ""
               }`}
             >
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4 sm:p-5 border border-white/80 shadow-xl shadow-gray-200/30 sticky top-[72px]">
-                {/* Preview / QR Code Toggle */}
-                <div className="flex items-center justify-center mb-4">
-                  <div className="flex bg-gray-100/80 rounded-xl p-1 gap-0.5">
-                    <button
-                      onClick={() => setPreviewTab("preview")}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] transition-all cursor-pointer ${
-                        previewTab === "preview"
-                          ? "bg-white shadow-sm"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                      style={{
-                        fontWeight: previewTab === "preview" ? 600 : 400,
-                        color: previewTab === "preview" ? "#4C80F1" : undefined,
-                      }}
-                    >
-                      <Smartphone className="w-3.5 h-3.5" />
-                      Preview
-                    </button>
-                    <button
-                      onClick={() => setPreviewTab("qrcode")}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] transition-all cursor-pointer ${
-                        previewTab === "qrcode"
-                          ? "bg-white shadow-sm"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                      style={{
-                        fontWeight: previewTab === "qrcode" ? 600 : 400,
-                        color: previewTab === "qrcode" ? "#4C80F1" : undefined,
-                      }}
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      QR Code
-                    </button>
+              <div className="bg-white/100 backdrop-blur-sm rounded-2xl p-4 sm:p-5 border border-white/80 shadow-none sticky top-[72px]">
+                {/* Preview / QR Code Toggle — only shown for types with a landing page */}
+                {hasLandingPage && (
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="flex bg-gray-100/80 rounded-xl p-1 gap-0.5">
+                      <button
+                        onClick={() => setPreviewTab("preview")}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] transition-all cursor-pointer ${
+                          effectivePreviewTab === "preview"
+                            ? "bg-white shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                        style={{
+                          fontWeight: effectivePreviewTab === "preview" ? 600 : 400,
+                          color: effectivePreviewTab === "preview" ? "#4C80F1" : undefined,
+                        }}
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => setPreviewTab("qrcode")}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] transition-all cursor-pointer ${
+                          effectivePreviewTab === "qrcode"
+                            ? "bg-white shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                        style={{
+                          fontWeight: effectivePreviewTab === "qrcode" ? 600 : 400,
+                          color: effectivePreviewTab === "qrcode" ? "#4C80F1" : undefined,
+                        }}
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        QR Code
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {previewTab === "qrcode" ? (
+                {effectivePreviewTab === "qrcode" ? (
                   <QRPreview value={qrValue} options={options} />
                 ) : (
                   <PhoneMockupPreview
@@ -249,10 +262,10 @@ export default function App() {
         </div>
       </main>
 
-      {/* Footer */}
+      {/* Footer 
       <footer className="py-5 text-center text-[11px] text-gray-400 border-t border-white/30">
         QR Studio — Generate unlimited QR codes for free
-      </footer>
+      </footer> */}
     </div>
   );
 }

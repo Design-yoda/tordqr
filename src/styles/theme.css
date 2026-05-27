@@ -126,7 +126,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Onest', system-ui, sans-serif;
+    font-family: 'Parkinsans', system-ui, sans-serif;
   }
 
   /**
@@ -139,7 +139,7 @@
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Gambarino', serif;
+    font-family: 'Parkinsans', system-ui, sans-serif;
   }
 
   h1 {
@@ -167,7 +167,7 @@
   }
 
   p {
-    font-family: 'Onest', system-ui, sans-serif;
+    font-family: 'Parkinsans', system-ui, sans-serif;
   }
 
   label {

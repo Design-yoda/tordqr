@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { QRType } from "./qr-type-selector";
+import { WhatsAppIcon } from "./whatsapp-icon";
 import {
   Plus,
   Trash2,
@@ -12,7 +13,6 @@ import {
   Github,
   Globe,
   Music,
-  MessageCircle,
   ImagePlus,
   X,
   Link,
@@ -33,7 +33,7 @@ const SOCIAL_PLATFORMS = [
   { id: "linkedin",  label: "LinkedIn",   icon: Linkedin,  placeholder: "https://linkedin.com/in/username" },
   { id: "github",    label: "GitHub",     icon: Github,    placeholder: "https://github.com/username" },
   { id: "tiktok",    label: "TikTok",     icon: Music,     placeholder: "https://tiktok.com/@username" },
-  { id: "whatsapp",  label: "WhatsApp",   icon: MessageCircle, placeholder: "https://wa.me/1234567890" },
+  { id: "whatsapp",  label: "WhatsApp",   icon: WhatsAppIcon,  placeholder: "https://wa.me/1234567890" },
   { id: "website",   label: "Website",    icon: Globe,     placeholder: "https://yourwebsite.com" },
 ];
 
@@ -68,6 +68,21 @@ const PRIMARY = "#4C80F1";
 const inp = "w-full px-4 py-2.5 rounded-xl bg-white/80 border border-gray-200/80 focus:border-[#4C80F1] focus:ring-2 focus:ring-[#4C80F1]/10 outline-none transition-all placeholder:text-gray-400 text-[14px]";
 const labelClass = "block text-[12px] text-gray-500 mb-1.5 ml-0.5";
 
+const CURRENCIES = [
+  { symbol: "$",    label: "$ – US Dollar (USD)" },
+  { symbol: "€",    label: "€ – Euro (EUR)" },
+  { symbol: "£",    label: "£ – British Pound (GBP)" },
+  { symbol: "¥",    label: "¥ – Japanese Yen (JPY)" },
+  { symbol: "₦",    label: "₦ – Nigerian Naira (NGN)" },
+  { symbol: "₹",    label: "₹ – Indian Rupee (INR)" },
+  { symbol: "CA$",  label: "CA$ – Canadian Dollar (CAD)" },
+  { symbol: "A$",   label: "A$ – Australian Dollar (AUD)" },
+  { symbol: "R",    label: "R – South African Rand (ZAR)" },
+  { symbol: "₵",    label: "₵ – Ghanaian Cedi (GHS)" },
+  { symbol: "د.إ",  label: "د.إ – UAE Dirham (AED)" },
+  { symbol: "kr",   label: "kr – Swedish Krona (SEK)" },
+];
+
 const newMenu  = (): MenuCategory[] => [{ id: "1", name: "Main Course", items: [{ id: "1-1", name: "", price: "", description: "" }] }];
 const newMedia = (): MediaItem[]    => [{ id: "1", title: "", mode: "url", url: "", fileUrl: "", fileName: "" }];
 
@@ -78,6 +93,15 @@ function readFile(file: File): Promise<string> {
     r.onload = (e) => res(e.target?.result as string);
     r.readAsDataURL(file);
   });
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const arr = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)![1];
+  const bstr = atob(arr[1]);
+  const u8arr = new Uint8Array(bstr.length);
+  for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+  return new File([u8arr], filename, { type: mime });
 }
 
 /* ── Image crop modal ─────────────────────────────────────────────────── */
@@ -473,12 +497,11 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
   const [socialLinks,    setSocialLinks]    = useState<{ platform: string; url: string }[]>([{ platform: "instagram", url: "" }]);
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>(newMenu());
   const [linkItems,      setLinkItems]      = useState<LinkItem[]>([{ id: "1", label: "", url: "" }]);
-  const [pdfItems,       setPdfItems]       = useState<MediaItem[]>(newMedia());
   const [videoItems,     setVideoItems]     = useState<MediaItem[]>(newMedia());
   const [audioItems,     setAudioItems]     = useState<MediaItem[]>(newMedia());
 
-  const menuImageRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [cropPendingMenu, setCropPendingMenu] = useState<{ ci?: number; ii?: number; src: string; isLogo?: boolean } | null>(null);
+  const [cropPendingMenu, setCropPendingMenu] = useState<{ src: string } | null>(null);
+  const [menuUploading, setMenuUploading] = useState<Record<string, boolean>>({});
 
   /* Reset all state on type change */
   useEffect(() => {
@@ -486,26 +509,24 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
     setSocialLinks([{ platform: "instagram", url: "" }]);
     setMenuCategories(newMenu());
     setLinkItems([{ id: "1", label: "", url: "" }]);
-    setPdfItems(newMedia());
     setVideoItems(newMedia());
     setAudioItems(newMedia());
+    setMenuUploading({});
   }, [type]);
 
   /* Emit value + meta */
   useEffect(() => {
-    onValueChange(buildValue(type, fields, socialLinks, menuCategories, linkItems, pdfItems, videoItems, audioItems));
+    onValueChange(buildValue(type, fields, socialLinks, menuCategories, linkItems, videoItems, audioItems));
 
     if (!onMetaChange) return;
     if (type === "social") {
-      onMetaChange({ title: fields.socialTitle || "", description: fields.socialDesc || "", profileImageUrl: fields.profileImageUrl || "", links: socialLinks });
+      onMetaChange({ title: fields.socialTitle || "", description: fields.socialDesc || "", profileImageUrl: fields.profileImageUrl || "", links: socialLinks, _profileIsHosted: !!(fields.profileImageUrl && !fields.profileImageUrl.startsWith("data:")) });
     } else if (type === "menu") {
-      onMetaChange({ restaurantName: fields.restaurantName || "", brandColor: fields.brandColor || "#F97316", logoUrl: fields.logoUrl || "", categories: menuCategories });
+      onMetaChange({ restaurantName: fields.restaurantName || "", brandColor: fields.brandColor || "#F97316", logoUrl: fields.logoUrl || "", currency: fields.currency || "$", categories: menuCategories });
     } else if (type === "appstore") {
       onMetaChange({ appName: fields.appName || "", appIconUrl: fields.appIconUrl || "", appleUrl: fields.appleUrl || "", googleUrl: fields.googleUrl || "" });
     } else if (type === "links") {
       onMetaChange({ title: fields.linksTitle || "", links: linkItems });
-    } else if (type === "pdf") {
-      onMetaChange({ pdfItems });
     } else if (type === "video") {
       onMetaChange({ videoItems });
     } else if (type === "audio") {
@@ -513,7 +534,7 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
     } else {
       onMetaChange({ ...fields });
     }
-  }, [fields, type, socialLinks, menuCategories, linkItems, pdfItems, videoItems, audioItems]);
+  }, [fields, type, socialLinks, menuCategories, linkItems, videoItems, audioItems]);
 
   const update = (key: string, val: string) => setFields((p) => ({ ...p, [key]: val }));
 
@@ -544,11 +565,6 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
   const updateMenuItem = (ci: number, ii: number, key: string, val: string) => {
     const u = [...menuCategories]; (u[ci].items[ii] as any)[key] = val; setMenuCategories(u);
   };
-  const handleMenuItemImage = async (ci: number, ii: number, file: File) => {
-    const src = await readFile(file);
-    setCropPendingMenu({ ci, ii, src });
-  };
-
   /* ── Link helpers ───────────────────────────────────────────────────── */
   const addLinkItem = () => setLinkItems([...linkItems, { id: Date.now().toString(), label: "", url: "" }]);
   const removeLinkItem = (i: number) => setLinkItems(linkItems.filter((_, idx) => idx !== i));
@@ -564,7 +580,6 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
       const u = [...items]; u[i] = { ...u[i], ...patch }; set(u);
     },
   });
-  const pdf   = mkMediaHelpers(pdfItems,   setPdfItems);
   const video = mkMediaHelpers(videoItems, setVideoItems);
   const audio = mkMediaHelpers(audioItems, setAudioItems);
 
@@ -661,7 +676,16 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
               imageUrl={fields.profileImageUrl || ""}
               label="Profile image"
               shape="circle"
-              onUpload={(url) => update("profileImageUrl", url)}
+              onUpload={(dataUrl) => {
+                update("profileImageUrl", dataUrl);
+                (async () => {
+                  if (!import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) return;
+                  try {
+                    const hostedUrl = await uploadToHost(dataUrlToFile(dataUrl, "profile.jpg"));
+                    update("profileImageUrl", hostedUrl);
+                  } catch {}
+                })();
+              }}
               onRemove={() => update("profileImageUrl", "")}
             />
           </div>
@@ -706,13 +730,19 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
           {cropPendingMenu && (
             <CropModal
               src={cropPendingMenu.src}
-              onCrop={(url) => {
-                if (cropPendingMenu.isLogo) {
-                  update("logoUrl", url);
-                } else {
-                  updateMenuItem(cropPendingMenu.ci!, cropPendingMenu.ii!, "imageUrl", url);
-                }
+              onCrop={(croppedUrl) => {
                 setCropPendingMenu(null);
+                update("logoUrl", croppedUrl);
+                (async () => {
+                  if (!import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) return;
+                  setMenuUploading(p => ({ ...p, logo: true }));
+                  try {
+                    const hostedUrl = await uploadToHost(dataUrlToFile(croppedUrl, "logo.jpg"));
+                    update("logoUrl", hostedUrl);
+                  } catch { /* keep local preview */ } finally {
+                    setMenuUploading(p => { const n = { ...p }; delete n.logo; return n; });
+                  }
+                })();
               }}
               onCancel={() => setCropPendingMenu(null)}
             />
@@ -724,16 +754,25 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
               {fields.logoUrl ? (
                 <div className="relative w-14 h-14 shrink-0">
                   <div className="w-full h-full rounded-xl overflow-hidden border-2 border-gray-200">
-                    <img src={fields.logoUrl} alt="" className="w-full h-full object-contain p-1" />
+                    <img src={fields.logoUrl} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <button onClick={() => update("logoUrl", "")} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer shadow-sm z-10">
-                    <X className="w-3 h-3 text-white" />
-                  </button>
+                  {menuUploading.logo ? (
+                    <div className="absolute inset-0 rounded-xl bg-white/60 flex items-center justify-center">
+                      <svg className="w-5 h-5 animate-spin text-[#4C80F1]" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <button onClick={() => update("logoUrl", "")} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer shadow-sm z-10">
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  )}
                 </div>
               ) : (
                 <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#4C80F1] transition-colors cursor-pointer bg-gray-50">
                   <ImagePlus className="w-5 h-5 text-gray-400" />
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setCropPendingMenu({ src: await readFile(f), isLogo: true }); e.target.value = ""; } }} />
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setCropPendingMenu({ src: await readFile(f) }); e.target.value = ""; } }} />
                 </label>
               )}
             </div>
@@ -755,6 +794,15 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
             </div>
           </div>
 
+          <div>
+            <label className={labelClass}>Currency</label>
+            <select className={inp} value={fields.currency || "$"} onChange={(e) => update("currency", e.target.value)}>
+              {CURRENCIES.map((c) => (
+                <option key={c.symbol} value={c.symbol}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
           <div><label className={labelClass}>Description (optional)</label><input className={inp} placeholder="Fresh ingredients, made with love" value={fields.menuDesc || ""} onChange={(e) => update("menuDesc", e.target.value)} /></div>
 
           {menuCategories.map((cat, ci) => (
@@ -766,24 +814,9 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
               </div>
               {cat.items.map((item, ii) => (
                 <div key={item.id} className="ml-6 flex items-start gap-2">
-                  <div className="shrink-0 mt-1">
-                    {item.imageUrl ? (
-                      <div className="relative w-9 h-9 shrink-0">
-                        <div className="w-full h-full rounded-lg overflow-hidden border border-gray-200">
-                          <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <button onClick={() => updateMenuItem(ci, ii, "imageUrl", "")} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center cursor-pointer shadow-sm z-10"><X className="w-2.5 h-2.5 text-white" /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => menuImageRefs.current[`${cat.id}-${item.id}`]?.click()} className="w-9 h-9 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#4C80F1] transition-colors cursor-pointer bg-white">
-                        <ImagePlus className="w-4 h-4 text-gray-400" />
-                      </button>
-                    )}
-                    <input type="file" accept="image/*" className="hidden" ref={(el) => { menuImageRefs.current[`${cat.id}-${item.id}`] = el; }} onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleMenuItemImage(ci, ii, f); e.target.value = ""; } }} />
-                  </div>
                   <div className="flex-1 grid grid-cols-[1fr_80px] gap-2">
                     <input className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-[13px] outline-none focus:border-[#4C80F1]" placeholder="Item name" value={item.name} onChange={(e) => updateMenuItem(ci, ii, "name", e.target.value)} />
-                    <input className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-[13px] outline-none focus:border-[#4C80F1]" placeholder="$0.00" value={item.price} onChange={(e) => updateMenuItem(ci, ii, "price", e.target.value)} />
+                    <input className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-[13px] outline-none focus:border-[#4C80F1]" placeholder="0.00" value={item.price} onChange={(e) => updateMenuItem(ci, ii, "price", e.target.value)} />
                     <input className="col-span-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-[12px] outline-none focus:border-[#4C80F1]" placeholder="Description (optional)" value={item.description} onChange={(e) => updateMenuItem(ci, ii, "description", e.target.value)} />
                   </div>
                   {cat.items.length > 1 && <button onClick={() => removeMenuItem(ci, ii)} className="p-1.5 text-gray-400 hover:text-red-500 mt-1 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>}
@@ -828,24 +861,17 @@ export function QRForm({ type, onValueChange, onMetaChange }: QRFormProps) {
         </div>
       );
 
-    case "pdf":
+    case "whatsapp":
       return (
         <div className="space-y-3">
-          {pdfItems.map((item, i) => (
-            <MediaItemRow
-              key={item.id}
-              item={item}
-              index={i}
-              accept=".pdf,application/pdf"
-              urlPlaceholder="https://example.com/document.pdf"
-              onUpdate={(p) => pdf.update(i, p)}
-              onRemove={() => pdf.remove(i)}
-              canRemove={pdfItems.length > 1}
-            />
-          ))}
-          <button onClick={pdf.add} className="flex items-center gap-1.5 text-[13px] cursor-pointer" style={{ color: PRIMARY }}>
-            <Plus className="w-4 h-4" /> Add Another PDF
-          </button>
+          <div>
+            <label className={labelClass}>Phone Number (with country code)</label>
+            <input className={inp} placeholder="+1 234 567 8900" value={fields.waPhone || ""} onChange={(e) => update("waPhone", e.target.value)} />
+          </div>
+          <div>
+            <label className={labelClass}>Pre-filled Message (optional)</label>
+            <textarea className={`${inp} min-h-[80px] resize-none`} placeholder="Hello! I'd like to get in touch…" value={fields.waMessage || ""} onChange={(e) => update("waMessage", e.target.value)} />
+          </div>
         </div>
       );
 
@@ -930,7 +956,6 @@ function buildValue(
   socialLinks: { platform: string; url: string }[],
   menuCategories: MenuCategory[],
   linkItems: LinkItem[],
-  pdfItems: MediaItem[],
   videoItems: MediaItem[],
   audioItems: MediaItem[],
 ): string {
@@ -963,20 +988,34 @@ function buildValue(
     case "social": {
       const valid = socialLinks.filter((l) => l.url.trim());
       if (!valid.length && !fields.socialTitle) return "";
-      const payload = { title: fields.socialTitle || "My Links", desc: fields.socialDesc || "", links: valid };
+      const payload: Record<string, any> = { title: fields.socialTitle || "My Links", desc: fields.socialDesc || "", links: valid };
+      if (fields.profileImageUrl && !fields.profileImageUrl.startsWith("data:")) {
+        payload.profileImageUrl = fields.profileImageUrl;
+      }
       const base = window.location.href.split("#")[0];
       return `${base}#view?type=social&d=${encodeQRData(payload)}`;
     }
     case "menu": {
       const hasItems = menuCategories.some((c) => c.items.some((i) => i.name.trim()));
       if (!hasItems && !fields.restaurantName) return "";
-      // Strip imageUrl from items — base64 images are preview-only and too large for QR codes
+      // Only include imageUrl when it's a hosted URL (Cloudinary), not a base64 data URL
       const cleanCategories = menuCategories.map((c) => ({
         id: c.id,
         name: c.name,
-        items: c.items.map(({ id, name, price, description }) => ({ id, name, price, description })),
+        items: c.items.map(({ id, name, price, description, imageUrl }) => {
+          const base: Record<string, string> = { id, name, price, description };
+          if (imageUrl && !imageUrl.startsWith("data:")) base.imageUrl = imageUrl;
+          return base;
+        }),
       }));
-      const payload = { name: fields.restaurantName || "Restaurant", desc: fields.menuDesc || "", brandColor: fields.brandColor || "#F97316", categories: cleanCategories };
+      const payload: Record<string, any> = {
+        name: fields.restaurantName || "Restaurant",
+        desc: fields.menuDesc || "",
+        brandColor: fields.brandColor || "#F97316",
+        currency: fields.currency || "$",
+        categories: cleanCategories,
+      };
+      if (fields.logoUrl && !fields.logoUrl.startsWith("data:")) payload.logoUrl = fields.logoUrl;
       const base = window.location.href.split("#")[0];
       return `${base}#view?type=menu&d=${encodeQRData(payload)}`;
     }
@@ -987,14 +1026,11 @@ function buildValue(
       const base = window.location.href.split("#")[0];
       return `${base}#view?type=coupon&d=${encodeQRData(payload)}`;
     }
-    case "pdf": {
-      const first = pdfItems.find((p) => p.url.trim() || p.fileUrl);
-      if (!first) return "";
-      if (first.url.trim()) return first.url.trim();
-      const uploadedPdf = pdfItems.filter((p) => p.fileUrl).map((p) => ({ title: p.title, src: p.fileUrl }));
-      if (!uploadedPdf.length) return "";
-      const base = window.location.href.split("#")[0];
-      return `${base}#view?type=pdf&d=${encodeQRData({ items: uploadedPdf })}`;
+    case "whatsapp": {
+      const phone = (fields.waPhone || "").replace(/\D/g, "");
+      if (!phone) return "";
+      const msg = fields.waMessage?.trim();
+      return msg ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : `https://wa.me/${phone}`;
     }
     case "video": {
       const first = videoItems.find((v) => v.url.trim() || v.fileUrl);
